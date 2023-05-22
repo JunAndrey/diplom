@@ -19,7 +19,7 @@ from .models import Shop, Category, Product, ProductInfo, Parameter, ProductPara
     ConfirmEmailToken
 from .serializers import UserSerializer, CategorySerializer, ShopSerializer, ProductInfoSerializer, OrderSerializer, \
     OrderItemSerializer, ContactSerializer
-from .signals import user_registered
+from .signals import user_registered, new_order
 
 
 class RegisterAccount(APIView):
@@ -338,7 +338,7 @@ class PartnerOrders(APIView):
 
     def get(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
-            return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
+            return JsonResponse({'Status': False, 'Error': 'Login required'}, status=403)
         if request.user.type != 'shop':
             return JsonResponse({'Status': False, 'Error': 'Сервис только для магазинов'}, status=403)
 
@@ -360,7 +360,7 @@ class ContactView(APIView):
     # получить контакты
     def get(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
-            return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
+            return JsonResponse({'Status': False, 'Error': 'Login required'}, status=403)
         contact = Contact.objects.filter(user_id=request.user.id)
         serializer = ContactSerializer(contact, many=True)
         return Response(serializer.data)
@@ -368,8 +368,8 @@ class ContactView(APIView):
     # добавить новый контакт
     def post(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
-            return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
-        if{'city', 'street', 'phone'}.issubset(request.data):
+            return JsonResponse({'Status': False, 'Error': 'Login required'}, status=403)
+        if {'city', 'street', 'phone'}.issubset(request.data):
             request.data._mutable = True
             request.data.update({'user': request.user.id})
             serializer = ContactSerializer(data=request.data)
@@ -384,7 +384,7 @@ class ContactView(APIView):
     # удалить контакт
     def delete(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
-            return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
+            return JsonResponse({'Status': False, 'Error': 'Login required'}, status=403)
         items_dict = request.data.get('items')
         if items_dict:
             items_list = items_dict.split(',')
@@ -400,3 +400,53 @@ class ContactView(APIView):
         return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'})
 
     # редактировать контакт
+    def put(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return JsonResponse({'Status': False, 'Error': 'Login required'}, status=403)
+        if 'id' in request.data:
+            if request.data['id'].isdigit():
+                contact = Contact.objects.filter(id=request.data['id'], user_id=request.user.id).first()
+                print(contact)
+                if contact:
+                    serializer = ContactSerializer(contact, data=request.data, partial=True)
+                    if serializer.is_valid():
+                        serializer.save()
+                        return JsonResponse({'Status': True})
+                    else:
+                        return JsonResponse({'Status': False, 'Error': serializer.errors})
+        return JsonResponse({'Status': False, 'Error': 'Не указаны все необходимые аргументы'})
+
+
+class OrderView(APIView):
+    """
+    Класс для получения и размешения заказов пользователями
+    """
+
+    # получить мои заказы
+    def get(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return JsonResponse({'Status': False, 'Error': 'Login required'}, status=403)
+        order = Order.objects.filter(user_id=request.user.id).exclude(state='basket').prefetch_related(
+            'ordered_items__product_info__product__category',
+            'ordered_items__product_info__product_parameters__parameter').select_related('contact').annotate(
+            total_sum=Sum(F('ordered_items__quantity') * F('ordered_items__product_info__price'))).distinct()
+        serializer = OrderSerializer(order, many=True)
+        return Response(serializer.data)
+
+    # разместить заказ из корзины
+    def post(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return JsonResponse({'Status': False, 'Error': 'Login required'}, status=403)
+        if {'id', 'contact'}.issubset(request.data):
+            if request.data['id'].isdigit():
+                try:
+                    order_updated = Order.objects.filter(
+                        user_id=request.user.id, id=request.data['id']).update(
+                            contact_id=request.data['contact'], state='new')
+                except IntegrityError as error:
+                    return JsonResponse({'Status': False, 'Error': str(error)})
+                else:
+                    if order_updated:
+                        new_order.send(sender=self.__class__, user_id=request.user.id)
+                        return JsonResponse({'Status': True})
+            return JsonResponse({'Status': False, 'Error': 'Не указаны все необходимые аргументы'})
