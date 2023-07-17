@@ -12,8 +12,7 @@ https://docs.djangoproject.com/en/4.1/ref/settings/
 
 from pathlib import Path
 import os
-import sys
-
+import local_settings
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -22,7 +21,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-0dn79v4qf$*5+6$4w*!=awmq$1ikvc$b)^(8n=c7i-_jftvdg7'
+SECRET_KEY = local_settings.SECRET_KEY
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -83,11 +82,11 @@ WSGI_APPLICATION = 'orders.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'app_db',
-        'USER': 'andrey',
-        'PASSWORD': 'password',
-        'HOST': '127.0.0.1',
-        'PORT': '5432',
+        'NAME': local_settings.NAME,
+        'USER': local_settings.USER,
+        'PASSWORD': local_settings.PASSWORD,
+        'HOST': local_settings.HOST,
+        'PORT': local_settings.PORT,
     }
 }
 
@@ -140,10 +139,10 @@ AUTHENTICATION_BACKENDS = (
 SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 # EMAIL_USE_TLS = True
 
-EMAIL_HOST = 'smtp.mail.ru'
-EMAIL_HOST_USER = 'junandrey@mail.ru'
-EMAIL_HOST_PASSWORD = '12345'
-EMAIL_PORT = '465'
+EMAIL_HOST = local_settings.EMAIL_HOST
+EMAIL_HOST_USER = local_settings.EMAIL_HOST_USER
+EMAIL_HOST_PASSWORD = local_settings.EMAIL_HOST_PASSWORD
+EMAIL_PORT = local_settings.EMAIL_PORT
 EMAIL_USE_SSL = True
 SERVER_EMAIL = EMAIL_HOST_USER
 

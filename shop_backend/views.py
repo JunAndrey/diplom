@@ -42,7 +42,7 @@ class RegisterAccount(APIView):
                 return JsonResponse({'Status': False, 'Errors': {'password': error_list}})
             else:
                 # проверяем данные для уникальности имени пользователя
-                request.data._mutable = True
+                request.POST._mutable = True
                 request.data.update([])
                 user_serializer = UserSerializer(data=request.data)
                 if user_serializer.is_valid():
@@ -100,7 +100,7 @@ class AccountDetails(APIView):
         # проверяем обязательные аргументы
         if 'password' in request.data:
             # проверяем обязательные аргументы
-            errors = {}
+            # errors = {}
             try:
                 validate_password(request.data['password'])
             except Exception as password_error:
@@ -370,7 +370,7 @@ class ContactView(APIView):
         if not request.user.is_authenticated:
             return JsonResponse({'Status': False, 'Error': 'Login required'}, status=403)
         if {'city', 'street', 'phone'}.issubset(request.data):
-            request.data._mutable = True
+            request.POST._mutable = True
             request.data.update({'user': request.user.id})
             serializer = ContactSerializer(data=request.data)
             if serializer.is_valid():
