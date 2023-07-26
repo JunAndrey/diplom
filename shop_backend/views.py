@@ -132,7 +132,7 @@ class LoginAccount(APIView):
                 if user.is_active:
                     token, _ = Token.objects.get_or_create(user=user)
                     return JsonResponse({'Status': True, 'Token': token.key})
-            return JsonResponse({'Status': False, 'Error': 'Ошибка авторизации'})
+            return JsonResponse({'Status': False, 'Error': f'Ошибка авторизации{user}'})
         return JsonResponse({'Status': False, 'Error': 'Не указаны все необходимые аргументы'})
 
 
