@@ -1,0 +1,2 @@
+[run]
+omit=tests/*,venv/*,manage.py,orders/*,shop_backend/__init__.py,shop_backend/migrations/*

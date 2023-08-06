@@ -93,7 +93,7 @@ class User(AbstractUser):
         return f'{self.first_name} {self.last_name}'
 
     class Meta:
-        verbose_name = 'ПользовToken.objects.getатель'
+        verbose_name = 'Пользователь'
         verbose_name_plural = "Список пользователей"
         ordering = ('email',)
 
@@ -229,10 +229,6 @@ class Order(models.Model):
 
     def __str__(self):
         return str(self.dt)
-
-    # @property
-    # def sum(self):
-    #     return self.ordered_items.aggregate(total=Sum("quantity"))["total"]
 
 
 class OrderItem(models.Model):

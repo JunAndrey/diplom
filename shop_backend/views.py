@@ -100,7 +100,6 @@ class AccountDetails(APIView):
         # проверяем обязательные аргументы
         if 'password' in request.data:
             # проверяем обязательные аргументы
-            # errors = {}
             try:
                 validate_password(request.data['password'])
             except Exception as password_error:
@@ -115,7 +114,7 @@ class AccountDetails(APIView):
         user_serializer = UserSerializer(request.user, data=request.data, partial=True)
         if user_serializer.is_valid():
             user_serializer.save()
-            return JsonResponse({'Status': True})
+            return Response(user_serializer.data)
         else:
             return JsonResponse({'Status': False, 'Errors': user_serializer.errors})
 
