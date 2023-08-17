@@ -1,7 +1,8 @@
 from model_bakery import baker
 import pytest
 from rest_framework.test import APIClient
-from shop_backend.models import User, ConfirmEmailToken, Category, Shop
+from shop_backend.models import User, ConfirmEmailToken, Category, Shop, ProductInfo, Product, Parameter, Contact, \
+    Order, ProductParameter
 
 
 @pytest.fixture
@@ -12,13 +13,20 @@ def client():
 @pytest.fixture
 def user():
     return User.objects.create_user(first_name='Andrey', last_name='Dzhun', email='jun1969andrey@gmail.com',
-                                    password='jskdjdn2421234564$hhv', company='Ecoles', position='manager')
+                                    password='jskdjdn2421234564$hhv', company='Ecoles', position='manager', type='shop')
+
+
+# @pytest.fixture
+# def product_factory():
+#     return ProductInfo.objects.create(model='Iphone14', external_id=1234, quantity=14, price=75000,
+#                                              price_rrc=85000, product_id=product.id, shop_id=shops[0].pk)
 
 
 @pytest.fixture
 def body():
     return {'first_name': 'Andrey', 'last_name': 'Jun', 'email': 'jun1969andrey@gmail.com',
-            'password': 'jskdjdn2421234564$hhv', 'company': 'Ecoles', 'position': 'manager', "contacts": {}}
+            'password': 'jskdjdn2421234564$hhv', 'company': 'Ecoles',
+            'position': 'manager', "contacts": {}, 'type': 'shop'}
 
 
 @pytest.fixture
@@ -116,3 +124,66 @@ def test_get_categories(category_factory, client):
     sorted_data = sorted(data['results'], key=lambda item: item['id'])
     for ind, item in enumerate(sorted_data):
         assert item['name'] == category[ind].name
+
+
+@pytest.mark.django_db
+def test_ProductInfoView(client, shops_factory, category_factory):
+    shops = shops_factory(_quantity=3)
+    category = category_factory(_quantity=4)
+    product = Product.objects.create(name='phone', category_id=category[0].id)
+    productinfo = ProductInfo.objects.create(model='Iphone14', external_id=1234, quantity=14, price=75000,
+                                             price_rrc=85000, product_id=product.id, shop_id=shops[0].id)
+    response = client.get('/api/v1/product', kwargs={'shop_id': productinfo.shop_id,
+                                                     'category_id': category[0].id})
+    data = response.json()
+    assert productinfo.model == data[0]['model']
+    assert response.status_code == 200
+
+
+# @pytest.mark.django_db
+# def test_BasketView(token_return, body, client, user, shops_factory, category_factory):
+#     shop = shops_factory(_quantity=2)
+#     category = category_factory(_quantity=2)
+#     product = Product.objects.create(name='phone', category_id=category[0].pk)
+#     parameter = Parameter.objects.create(name='color')
+#     print(f'param', parameter.__dict__)
+#     print(f'product', product.__dict__)
+#     contact = Contact.objects.create(user_id=user.id, city='Moskow', street='Lenin', house=7, phone='+7777777777')
+#     product_info = ProductInfo.objects.create(model='Iphone14', external_id=1234, quantity=14, price=75000,
+#                                               price_rrc=85000, product_id=product.id, shop_id=shop[0].pk)
+#     product_parameter = ProductParameter.objects.create(product_info_id=product_info.id,
+#                                                         parameter_id=parameter.pk, value='black')
+#     print(f'prod', product_info.__dict__)
+#     order = Order.objects.create(user_id=user.id, state='basket', contact_id=contact.pk)
+#     print(f'order', order.__dict__)
+#     data = {'order': order.id, 'shop': shop[0].pk, 'quantity': 2, 'product_info': product_info.id}
+#     # data = {'items': {"id": 2}}
+#     response_post = client.post('/api/v1/basket', headers=token_return, data=data)
+#     print(f'post', response_post.json())
+#     assert response_post.status_code == 200
+#     # assert response_post.json()['Status'] == True
+#     response_get = client.get('/api/v1/basket', headers=token_return)
+#     print(f'get', response_get.json())
+#     assert response_get.status_code == 201
+
+
+@pytest.mark.django_db
+def test_PartnerState(client, token_return, user):
+    count = Shop.objects.count()
+    shop = Shop.objects.create(user_id=user.id, name='Store')
+    response_get = client.get('/api/v1/partner/state', headers=token_return)
+    assert Shop.objects.count() == count + 1
+    assert response_get.json()['name'] == shop.name
+    assert response_get.status_code == 200
+    data = {'state': "true"}
+    response_post = client.post('/api/v1/partner/state', headers=token_return, data=data)
+    assert shop.state == True
+    assert response_post.status_code == 200
+
+
+@pytest.mark.django_db
+def test_PartnerOrders(client, token_return, user):
+    shop = Shop.objects.create(user_id=user.id, name='Store', state=True)
+    response_get = client.get('/api/v1/partner/orders', headers=token_return)
+    print(response_get.json())
+    assert response_get.status_code == 201

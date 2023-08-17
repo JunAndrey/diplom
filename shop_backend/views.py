@@ -342,7 +342,7 @@ class PartnerOrders(APIView):
             return JsonResponse({'Status': False, 'Error': 'Сервис только для магазинов'}, status=403)
 
         # фильтруем и отсеиваем дубликаты
-        order = not Order.objects.filter(ordered_items__product_info__shop__user_id=request.user.id).exclude(
+        order = Order.objects.filter(ordered_items__product_info__shop__user_id=request.user.id).exclude(
             state='basket').prefetch_related('ordered_items__product_info__product__category',
                                              'ordered_items__product_info__product_parameters__parameter'). \
             select_related('contact').annotate(total_sum=Sum(

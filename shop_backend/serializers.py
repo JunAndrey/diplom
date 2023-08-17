@@ -55,7 +55,8 @@ class ProductInfoSerializer(serializers.ModelSerializer):
     product_parameters = ProductParameterSerializer(read_only=True, many=True)
 
     class Meta:
-        model = ProductInfo('id', 'model', 'product', 'shop', 'quantity', 'price', 'price_rrc', 'product_parameters', )
+        model = ProductInfo
+        fields = ('id', 'model', 'product', 'shop', 'quantity', 'price', 'price_rrc', 'product_parameters',)
         read_only_fields = ('id',)
 
 
@@ -82,6 +83,3 @@ class OrderSerializer(serializers.ModelSerializer):
         model = Order
         fields = ('id', 'dt', 'state', 'ordered_items', 'total_sum', 'contact',)
         read_only_fields = ('id',)
-
-
-
