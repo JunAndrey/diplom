@@ -215,7 +215,7 @@ class BasketView(APIView):
                             position_created += 1
                     else:
                         return JsonResponse({'Status': False, 'Error': serializer.errors})
-                return JsonResponse({'Status': True, 'Созданы след. позиции': position_created})
+                return JsonResponse({'Status': True, 'Создано позиций': position_created})
         return JsonResponse({'Status': False, 'Error': 'Не указаны все необходимые аргументы'})
 
     # Удаляем товары из корзины
@@ -245,13 +245,13 @@ class BasketView(APIView):
         if items_set:
             try:
                 items_dict = json_load(items_set)
-            except ValueError as error:
+            except ValueError:
                 JsonResponse({'Status': False, 'Error': 'Неверный запрос'})
             else:
                 basket, _ = Order.objects.get_or_create(user_id=request.user.id, state='basket')
                 position_updated = 0
                 for order_item in items_dict:
-                    if order_item['id'] == int and type(order_item['quantity']) == int:
+                    if type(order_item['id']) == int and type(order_item['quantity']) == int:
                         position_updated += OrderItem.objects.filter(order_id=basket.id, id=order_item['id']).update(
                             quantity=order_item['quantity'])
                 return JsonResponse({'Status': True, 'Обновлено позиций': position_updated})

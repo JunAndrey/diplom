@@ -2,8 +2,9 @@ from model_bakery import baker
 import pytest
 from rest_framework.test import APIClient
 from shop_backend.models import User, ConfirmEmailToken, Category, Shop, ProductInfo, Product, Parameter, Contact, \
-    Order, ProductParameter
+    Order, ProductParameter, OrderItem
 
+import ujson
 
 @pytest.fixture
 def client():
@@ -16,10 +17,9 @@ def user():
                                     password='jskdjdn2421234564$hhv', company='Ecoles', position='manager', type='shop')
 
 
-# @pytest.fixture
-# def product_factory():
-#     return ProductInfo.objects.create(model='Iphone14', external_id=1234, quantity=14, price=75000,
-#                                              price_rrc=85000, product_id=product.id, shop_id=shops[0].pk)
+@pytest.fixture
+def contact(user):
+    return Contact.objects.create(user_id=user.id, city='Moskow', street='Lenin', house=7, phone='+7777777777')
 
 
 @pytest.fixture
@@ -32,7 +32,7 @@ def body():
 @pytest.fixture
 def category_factory():
     def factory(*args, **kwargs):
-        return baker.make(Category, *args, **kwargs)
+        return baker.make(Category, *args, **kwargs, make_m2m=True)
 
     return factory
 
@@ -40,7 +40,7 @@ def category_factory():
 @pytest.fixture
 def shops_factory():
     def factory_2(*args, **kwargs):
-        return baker.make(Shop, *args, **kwargs)
+        return baker.make(Shop, *args, **kwargs, make_m2m=True)
 
     return factory_2
 
@@ -140,31 +140,70 @@ def test_ProductInfoView(client, shops_factory, category_factory):
     assert response.status_code == 200
 
 
-# @pytest.mark.django_db
-# def test_BasketView(token_return, body, client, user, shops_factory, category_factory):
-#     shop = shops_factory(_quantity=2)
-#     category = category_factory(_quantity=2)
-#     product = Product.objects.create(name='phone', category_id=category[0].pk)
-#     parameter = Parameter.objects.create(name='color')
-#     print(f'param', parameter.__dict__)
-#     print(f'product', product.__dict__)
-#     contact = Contact.objects.create(user_id=user.id, city='Moskow', street='Lenin', house=7, phone='+7777777777')
-#     product_info = ProductInfo.objects.create(model='Iphone14', external_id=1234, quantity=14, price=75000,
-#                                               price_rrc=85000, product_id=product.id, shop_id=shop[0].pk)
-#     product_parameter = ProductParameter.objects.create(product_info_id=product_info.id,
-#                                                         parameter_id=parameter.pk, value='black')
-#     print(f'prod', product_info.__dict__)
-#     order = Order.objects.create(user_id=user.id, state='basket', contact_id=contact.pk)
-#     print(f'order', order.__dict__)
-#     data = {'order': order.id, 'shop': shop[0].pk, 'quantity': 2, 'product_info': product_info.id}
-#     # data = {'items': {"id": 2}}
-#     response_post = client.post('/api/v1/basket', headers=token_return, data=data)
-#     print(f'post', response_post.json())
-#     assert response_post.status_code == 200
-#     # assert response_post.json()['Status'] == True
-#     response_get = client.get('/api/v1/basket', headers=token_return)
-#     print(f'get', response_get.json())
-#     assert response_get.status_code == 201
+@pytest.fixture
+def shop(user):
+    return Shop.objects.create(user_id=user.id, name="Store", state=True)
+
+
+@pytest.fixture
+def category(shop):
+    categories = Category.objects.create(name='smart')
+    categories.shops.add(shop)
+    return categories
+
+
+@pytest.fixture
+def product(category):
+    return Product.objects.create(name='phone', category=category)
+
+
+@pytest.fixture
+def productinfo(shop, product):
+    return ProductInfo.objects.create(model='Iphone 14', product=product, shop=shop,
+                                      quantity=5, external_id=987, price=80000, price_rrc=85000)
+
+
+@pytest.fixture
+def parameter(productinfo):
+    parameter = Parameter.objects.create(name='condition')
+    return ProductParameter.objects.create(product_info=productinfo, parameter=parameter, value='new')
+
+
+@pytest.fixture
+def order(user, contact):
+    return Order.objects.create(user_id=user.id, state='basket', contact_id=contact.id)
+
+
+@pytest.fixture
+def order_item(order, productinfo, shop):
+    return OrderItem.objects.create(order=order, product_info=productinfo, quantity=3, shop=shop)
+
+
+@pytest.mark.django_db(transaction=True)
+def test_BasketView(token_return, order, client, shop, productinfo):
+    response_get_1 = client.get('/api/v1/basket', headers=token_return)
+    res_get_1 = response_get_1.json()
+    assert res_get_1[0]['total_sum'] is None
+    data = {"items": ujson.dumps([{"order": order.id, "product_info": productinfo.id, "shop": shop.id, "quantity": 2}])}
+    response_post = client.post('/api/v1/basket', headers=token_return, data=data)
+    res_post = response_post.json()
+    assert res_post['Status'] is True
+    assert res_post['Создано позиций'] == len(ujson.loads(data["items"]))
+    response_get = client.get('/api/v1/basket', headers=token_return)
+    res_get = response_get.json()
+    assert res_get[0]['ordered_items'][0]['quantity'] == ujson.loads(data["items"])[0]['quantity']
+    data_2 = {"items": ujson.dumps([{"id": order.id, "product_info": productinfo.id, "shop": shop.id, "quantity": 1}])}
+    response_put = client.put('/api/v1/basket', headers=token_return, data=data_2)
+    res_put = response_put.json()
+    assert res_put['Status'] is True
+    assert res_put['Обновлено позиций'] == ujson.loads(data_2["items"])[0]['quantity']
+    data_3 = {"items": f"{order.id}"}
+    response_delete = client.delete('/api/v1/basket', headers=token_return, data=data_3)
+    res_del = response_delete.json()
+    assert res_del['Status'] is True
+    assert res_del['Удалено  позиций'] == int(data_3["items"])
+
+
 
 
 @pytest.mark.django_db
