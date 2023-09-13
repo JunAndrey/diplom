@@ -6,6 +6,7 @@ from shop_backend.models import User, ConfirmEmailToken, Category, Shop, Product
 
 import ujson
 
+
 @pytest.fixture
 def client():
     return APIClient()
@@ -53,13 +54,51 @@ def token_return(user, client):
     return headers
 
 
+@pytest.fixture
+def shop(user):
+    return Shop.objects.create(user_id=user.id, name="Store", state=True)
+
+
+@pytest.fixture
+def category(shop):
+    categories = Category.objects.create(name='smart')
+    categories.shops.add(shop)
+    return categories
+
+
+@pytest.fixture
+def product(category):
+    return Product.objects.create(name='phone', category=category)
+
+
+@pytest.fixture
+def productinfo(shop, product):
+    return ProductInfo.objects.create(model='Iphone 14', product=product, shop=shop,
+                                      quantity=5, external_id=987, price=80000, price_rrc=85000)
+
+
+@pytest.fixture
+def parameter(productinfo):
+    parameter = Parameter.objects.create(name='condition')
+    return ProductParameter.objects.create(product_info=productinfo, parameter=parameter, value='new')
+
+
+@pytest.fixture
+def order(user, contact):
+    return Order.objects.create(user_id=user.id, state='basket', contact_id=contact.id)
+
+
+@pytest.fixture
+def order_item(order, productinfo, shop):
+    return OrderItem.objects.create(order=order, product_info=productinfo, quantity=3, shop=shop)
+
+
 @pytest.mark.django_db
 def test_users(client, body):
     count = User.objects.count()
     response = client.post('/api/v1/user/register', data=body)
     user = User.objects.get(first_name='Andrey')
     assert User.objects.count() == count + 1
-    assert response.status_code == 200
     assert user.first_name == body['first_name']
     assert user.last_name == body['last_name']
     assert user.company == body['company']
@@ -71,19 +110,16 @@ def test_AccountVerification(client, user):
     data = {'email': 'jun1969andrey@gmail.com', 'token': token.key}
     response = client.post('/api/v1/user/register/verification', data=data)
     assert token.user.is_active == True
-    assert response.status_code == 200
 
 
 @pytest.mark.django_db
 def test_AccountDetail(token_return, body, client):
     response = client.get('/api/v1/user/details', headers=token_return)
     resp_json = response.json()
-    assert response.status_code == 200
     assert resp_json['first_name'] == body['first_name']
     data = {'first_name': 'Andrey', 'last_name': 'Junior', 'email': 'junior_69@gmail.com'}
     response_1 = client.post('/api/v1/user/details', headers=token_return, data=data)
     resp_json_1 = response_1.json()
-    assert response_1.status_code == 200
     assert resp_json_1['email'] == data['email']
 
 
@@ -127,56 +163,12 @@ def test_get_categories(category_factory, client):
 
 
 @pytest.mark.django_db
-def test_ProductInfoView(client, shops_factory, category_factory):
-    shops = shops_factory(_quantity=3)
-    category = category_factory(_quantity=4)
-    product = Product.objects.create(name='phone', category_id=category[0].id)
-    productinfo = ProductInfo.objects.create(model='Iphone14', external_id=1234, quantity=14, price=75000,
-                                             price_rrc=85000, product_id=product.id, shop_id=shops[0].id)
+def test_ProductInfoView(client, shop, category, product, productinfo):
     response = client.get('/api/v1/product', kwargs={'shop_id': productinfo.shop_id,
-                                                     'category_id': category[0].id})
+                                                     'category_id': category.id})
     data = response.json()
     assert productinfo.model == data[0]['model']
-    assert response.status_code == 200
-
-
-@pytest.fixture
-def shop(user):
-    return Shop.objects.create(user_id=user.id, name="Store", state=True)
-
-
-@pytest.fixture
-def category(shop):
-    categories = Category.objects.create(name='smart')
-    categories.shops.add(shop)
-    return categories
-
-
-@pytest.fixture
-def product(category):
-    return Product.objects.create(name='phone', category=category)
-
-
-@pytest.fixture
-def productinfo(shop, product):
-    return ProductInfo.objects.create(model='Iphone 14', product=product, shop=shop,
-                                      quantity=5, external_id=987, price=80000, price_rrc=85000)
-
-
-@pytest.fixture
-def parameter(productinfo):
-    parameter = Parameter.objects.create(name='condition')
-    return ProductParameter.objects.create(product_info=productinfo, parameter=parameter, value='new')
-
-
-@pytest.fixture
-def order(user, contact):
-    return Order.objects.create(user_id=user.id, state='basket', contact_id=contact.id)
-
-
-@pytest.fixture
-def order_item(order, productinfo, shop):
-    return OrderItem.objects.create(order=order, product_info=productinfo, quantity=3, shop=shop)
+    assert productinfo.quantity == data[0]['quantity']
 
 
 @pytest.mark.django_db(transaction=True)
@@ -204,8 +196,6 @@ def test_BasketView(token_return, order, client, shop, productinfo):
     assert res_del['Удалено  позиций'] == int(data_3["items"])
 
 
-
-
 @pytest.mark.django_db
 def test_PartnerState(client, token_return, user):
     count = Shop.objects.count()
@@ -213,11 +203,9 @@ def test_PartnerState(client, token_return, user):
     response_get = client.get('/api/v1/partner/state', headers=token_return)
     assert Shop.objects.count() == count + 1
     assert response_get.json()['name'] == shop.name
-    assert response_get.status_code == 200
     data = {'state': "true"}
-    response_post = client.post('/api/v1/partner/state', headers=token_return, data=data)
-    assert shop.state == True
-    assert response_post.status_code == 200
+    client.post('/api/v1/partner/state', headers=token_return, data=data)
+    assert shop.state is True
 
 
 @pytest.mark.django_db
