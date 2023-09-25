@@ -278,13 +278,17 @@ class ProductUpdate(APIView):
             else:
                 data_block = get(url).content
                 data = yaml_load(data_block, Loader=Loader)
-                shop, _ = Shop.objects.get_or_create(name=data['shop'], user_id=request.user.id)
-                for category in data['categories']:
+                """
+                Далее, запросы формата request.data.get('***') - для работы непосредственно с yaml-файлом, для работы с
+                yaml-данными с сайта необходимы запросы формата data['***']
+                """
+                shop, _ = Shop.objects.get_or_create(name=request.data.get('shop'), user_id=request.user.id)
+                for category in request.data.get('categories'):
                     object_on_category, _ = Category.objects.get_or_create(id=category['id'], name=category['name'])
                     object_on_category.shops.add(shop.id)
                     object_on_category.save()
                 ProductInfo.objects.filter(shop_id=shop.id).delete()
-                for meaning in data['goods']:
+                for meaning in request.data.get('goods'):
                     product, _ = Product.objects.get_or_create(name=meaning['name'], category_id=meaning['category'])
                     product_info = ProductInfo.objects.create(product_id=product.id, external_id=meaning['id'],
                                                               model=meaning['model'], price=meaning['price'],

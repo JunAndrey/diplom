@@ -1,5 +1,3 @@
-import json
-
 from model_bakery import baker
 import pytest
 from rest_framework.test import APIClient
@@ -199,16 +197,14 @@ def test_BasketView(token_return, order, client, shop, productinfo):
 
 
 @pytest.mark.django_db
-def test_ProductUpdate(client, token_return, user):
-    shop_2 = Shop.objects.create(user_id=user.id, url="https://Sviaznoy39.ru", name="Связной", state=True)
+def test_ProductUpdate(client, token_return):
     with open('shop1.yaml') as f:
         data_yaml = yaml_load(f, Loader=Loader)
-        print(f'data_yaml', data_yaml)
+    print(f'data_yaml', data_yaml)
     response_post = client.post('/api/v1/product/update', headers=token_return, data=data_yaml)
-    # print(f'data', response_post.__dict__)
     res_post = response_post.json()
+    assert res_post['Status'] is True
     print(f'res_post', res_post)
-    assert response_post.status_code == 201
 
 
 @pytest.mark.django_db
@@ -222,18 +218,19 @@ def test_PartnerState(client, token_return, user):
     client.post('/api/v1/partner/state', headers=token_return, data=data)
     assert shop.state is True
 
+
 # @pytest.mark.django_db
-# def test_PartnerOrders(client, token_return, shop, order_item):
-#     # shop = Shop.objects.create(user_id=user.id, name='Store', state=True)
-#     response_get = client.get('/api/v1/partner/orders', headers=token_return)
-#     print(response_get.json())
+# def test_PartnerOrders(client, token_return, shop, order, order_item, productinfo):
+#     response_get = client.get('/api/v1/partner/orders', headers=token_return,
+#                               kwargs={'order': order.id, "product_info": productinfo.id, "shop": shop.id})
+#     print(f'response_get', response_get.json())
 #     assert response_get.status_code == 201
 
 
 @pytest.mark.django_db
 def test_ContactView(client, token_return):
     count = Contact.objects.count()
-    data = {'city': 'Petersburg', 'street': 'Leninskiy prosp.', 'house': 7, 'apartment': 34,  'phone': '+79118888888'}
+    data = {'city': 'Petersburg', 'street': 'Leninskiy prosp.', 'house': 7, 'apartment': 34, 'phone': '+79118888888'}
     response_post = client.post('/api/v1/user/contact', headers=token_return, data=data)
     res_post = response_post.json()
     count_2 = Contact.objects.count()
@@ -254,6 +251,14 @@ def test_ContactView(client, token_return):
     assert res_del['Удалено объектов'] == len(data_3['items'])
 
 
-
+@pytest.mark.django_db(transaction=True)
+def test_OrderView(client, token_return, order_item, contact):
+    data1 = {'id': str(order_item.id), 'contact': contact.id}
+    response_post = client.post('/api/v1/order', headers=token_return, data=data1)
+    res_post = response_post.json()
+    assert res_post['Status'] is True
+    response_get = client.get('/api/v1/order', headers=token_return)
+    res_get = response_get.json()
+    assert order_item.product_info.__dict__['price'] * order_item.__dict__['quantity'] == res_get[0]['total_sum']
 
 
