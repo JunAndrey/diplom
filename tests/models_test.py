@@ -219,12 +219,12 @@ def test_PartnerState(client, token_return, user):
     assert shop.state is True
 
 
-# @pytest.mark.django_db
-# def test_PartnerOrders(client, token_return, shop, order, order_item, productinfo):
-#     response_get = client.get('/api/v1/partner/orders', headers=token_return,
-#                               kwargs={'order': order.id, "product_info": productinfo.id, "shop": shop.id})
-#     print(f'response_get', response_get.json())
-#     assert response_get.status_code == 201
+@pytest.mark.django_db
+def test_PartnerOrders(client, token_return, shop, order, order_item, productinfo):
+    response_get = client.get('/api/v1/partner/orders', headers=token_return,
+                              kwargs={"order": order_item})
+    print(f'response_get', response_get.json())
+    assert response_get.status_code == 201
 
 
 @pytest.mark.django_db
